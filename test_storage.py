@@ -20,16 +20,20 @@ for r in results:
 # Test memory storage  
 memory = MemoryStore()
 print("\n🧠 Storing student memory...")
-memory.append_memory("student123", {
-    "type": "chat_summary", 
-    "course_id": "chem101", 
-    "payload": "Student asked about lab due dates, created study plan for Friday"
-})
+
+memory.append_memory(
+    user_id="student123",
+    memory_type="chat_summary",
+    course_id="chem101",
+    payload={
+        "summary": "Student asked about lab due dates, created study plan for Friday"
+    },
+)
 
 print("\n📚 Recent memory:")
 recent = memory.get_recent_memory("student123")
 for item in recent:
     print(f"Type: {item['type']}, Course: {item['course_id']}")
+    print(f"Payload: {item['payload']}")
 
-print("\n✅ Storage layer fully functional!")
 
