@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import requests
 import time
 
 st.set_page_config(page_title="Ingestion | GradePath", page_icon="📥", layout="wide")
@@ -16,44 +17,77 @@ with col_left:
         
         # Course & Folder Selection
         c1, c2 = st.columns(2)
-        course = c1.selectbox("Select Course", ["CHEM 101", "PHYS 202", "MATH 301", "ENGL 102"])
-        folder = c2.selectbox("Target Folder", ["Syllabus", "Assignments", "Lecture Notes", "Exams/Quizzes"])
-        
-        # File Uploader
-        uploaded_files = st.file_uploader(
-            "Drag and drop PDFs, PPTX, or DOCX files", 
-            type=["pdf", "pptx", "docx"],
-            accept_multiple_files=True
+        # Using keys to access these values in session state if needed
+        course_id = c1.selectbox(
+            "Select Course", 
+            ["chem101", "phys202", "math301", "engl102"], 
+            key="active_course"
+        )
+        folder_type = c2.selectbox(
+            "Target Folder", 
+            ["syllabus", "assignments", "notes"], 
+            key="folder_type"
         )
         
-        if uploaded_files:
-            st.info(f"Ready to ingest {len(uploaded_files)} file(s) into **{course} / {folder}**")
+        # File Uploader
+        uploaded_file = st.file_uploader(
+            "Upload Syllabus or Course PDF", 
+            type=["pdf", "txt", "md"],
+            accept_multiple_files=False # Prototype: Single file for clarity
+        )
+        
+        if uploaded_file:
+            st.info(f"Ready to ingest into **{course_id} / {folder_type}**")
             
-            if st.button("🚀 Process Materials", type="primary"):
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                # Simulation of Docling/Ingestion pipeline
-                status_text.text("Step 1/3: Converting documents with Docling...")
-                time.sleep(0.8)
-                progress_bar.progress(33)
-                
-                status_text.text("Step 2/3: Extracting schedule dates & key concepts...")
-                time.sleep(0.8)
-                progress_bar.progress(66)
-                
-                status_text.text("Step 3/3: Generating embeddings & updating Vector DB...")
-                time.sleep(0.8)
-                progress_bar.progress(100)
-                
-                st.success(f"Successfully ingested {len(uploaded_files)} documents! Calendar updated with 4 new dates.")
+            # REAL BACKEND CONNECTION
+            if st.button("🚀 Process Syllabus → Calendar + AI", type="primary"):
+                with st.spinner("Extracting events → Triggering MCP Calendar Tool → Indexing for AI..."):
+                    
+                    # 1. Prepare Request to FastAPI
+                    try:
+                        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
+                        data = {
+                            "course_id": course_id,
+                            "folder": folder_type
+                        }
+                        
+                        # 2. Call the Ingestion Endpoint
+                        response = requests.post(
+                            "http://localhost:8000/api/v1/ingest/upload", 
+                            files=files, 
+                            data=data, 
+                            timeout=30
+                        )
+                        
+                        # 3. Handle Response
+                        if response.status_code == 200:
+                            result = response.json()
+                            
+                            st.success(result["message"])
+                            st.balloons()
+                            
+                            # 4. Show MCP Tool Output (Calendar Events)
+                            if result.get("events"):
+                                with st.expander("🗓️ MCP Calendar Tool Logs (Events Created)", expanded=True):
+                                    for event in result["events"]:
+                                        st.markdown(f"**✅ [MCP] Created Event:** `{event['title']}`")
+                                        st.caption(f"Date Extraction: {event['timestamp']}")
+                                        st.divider()
+                            
+                        else:
+                            st.error(f"❌ Server Error: {response.text}")
+                            
+                    except requests.exceptions.ConnectionError:
+                         st.error("❌ Could not connect to backend. Is `uvicorn app.main:app` running?")
+                    except Exception as e:
+                        st.error(f"❌ An error occurred: {e}")
 
 with col_right:
     st.subheader("Recent Activity")
     
-    # Mock Activity Feed
+    # Mock Activity Feed (You can connect this to sqlite later)
     activities = [
-        {"action": "Extracted Schedule", "file": "Syllabus_CHEM101.pdf", "time": "2 mins ago", "status": "✅ Success"},
+        {"action": "MCP Calendar Tool", "file": "Triggered via Syllabus", "time": "Just now", "status": "✅ Active"},
         {"action": "Vectorized Notes", "file": "Week3_Thermodynamics.pptx", "time": "1 hour ago", "status": "✅ Success"},
         {"action": "Failed Upload", "file": "Corrupted_Lab.docx", "time": "Yesterday", "status": "❌ Error"},
     ]
@@ -62,12 +96,13 @@ with col_right:
         with st.container(border=True):
             st.markdown(f"**{act['action']}**")
             st.caption(f"{act['file']} • {act['time']}")
-            if "Success" in act['status']:
+            if "Success" in act['status'] or "Active" in act['status']:
                 st.markdown(f":green[{act['status']}]")
             else:
                 st.markdown(f":red[{act['status']}]")
 
 st.markdown("### 📋 Ingested Documents Inventory")
+# Static data for now, but ready to be replaced with VectorStore.list_documents()
 data = {
     "Course": ["CHEM 101", "PHYS 202", "CHEM 101", "MATH 301"],
     "Document Name": ["Fall2025_Syllabus.pdf", "Lecture_04_Kinematics.pptx", "Lab_Safety_Guide.pdf", "Homework_2.docx"],

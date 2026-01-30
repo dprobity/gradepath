@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1.endpoints import ingest
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -45,6 +46,7 @@ api_router = APIRouter()
 
 # Mount the main v1 router
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(ingest.router, prefix="/api/v1")
 
 
 # ------------------------------------------------------------------------------

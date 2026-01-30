@@ -5,9 +5,17 @@ build/
 dist/
 wheels/
 *.egg-info
+.data
+.DB_Store
 
 # Virtual environments
 .venv
 
 ## secrets
 .env
+
+
+# Google Auth Secrets (CRITICAL)
+credentials.json
+token.json
+client_secret_*.json
